@@ -213,18 +213,17 @@ def _run_chunk(cases: list[TestCase], auth_state, on_result) -> list[TestResult]
     """One worker: its own Playwright + browser, since the sync API isn't thread-safe."""
     results: list[TestResult] = []
     headful = settings.run_headful
-    # backend/app/executor.py
-
-with sync_playwright() as p:
-    browser = p.chromium.launch(
-        headless=True,
-        args=[
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-gpu"
-        ]
-    )
+    
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu"
+            ]
+        )
         try:
             for tc in cases:
                 # fresh context per test: isolated cookies/storage
