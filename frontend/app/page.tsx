@@ -123,11 +123,13 @@ export default function Dashboard() {
     }
   }
 
-  async function handleRun() {
+async function handleRun() {
     setRunning(true);
     setError(null);
     try {
-      const r = await api.runTests(undefined, setProgress);
+      const activeTestIds = testCases.filter((t) => t.enabled).map((t) => t.id);
+
+      const r = await api.runTests(activeTestIds, setProgress);
       setRun(r);
       flash(`Run finished: ${r.passed}/${r.total} passed, ${r.failed} failed, ${r.errors} errors.`);
     } catch (e) {
