@@ -98,7 +98,7 @@ export default function Dashboard() {
     [testCases, pageFilter, typeFilter],
   );
 
-  const enabledCount = testCases.filter((t) => t.enabled).length;
+  const enabledCount = testCases.filter((t) => t.enabled ?? true).length;
 
   async function handleCrawl(url: string, opts: CrawlOptions) {
     setCrawling(true);
@@ -127,7 +127,7 @@ async function handleRun() {
     setRunning(true);
     setError(null);
     try {
-      const activeTestIds = testCases.filter((t) => t.enabled).map((t) => t.id);
+      const activeTestIds = testCases.filter((t) => t.enabled ?? true).map((t) => t.id);
 
       const r = await api.runTests(activeTestIds, setProgress);
       setRun(r);
