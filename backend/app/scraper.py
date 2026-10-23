@@ -530,7 +530,15 @@ def crawl_site(
 
     try:
         with sync_playwright() as p:
-            browser: Browser = p.chromium.launch(headless=settings.headless)
+            browser: Browser = p.chromium.launch(
+                headless=settings.headless,
+                args=[
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu"
+                ]
+            )
             context = browser.new_context(
                 viewport={"width": 1366, "height": 900},
                 user_agent=settings.user_agent,
@@ -618,8 +626,17 @@ def manual_login(login_url: str, stop: threading.Event) -> dict:
     then saves the session once."""
     settings.auth_state_file.unlink(missing_ok=True)
     # Without these flags Google's sign-in page refuses automated browsers.
-    launch = {"headless": False, "args": ["--disable-blink-features=AutomationControlled"],
-              "ignore_default_args": ["--enable-automation"]}
+    launch = {
+        "headless": False, 
+        "args": [
+            "--disable-blink-features=AutomationControlled",
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu"
+        ],
+        "ignore_default_args": ["--enable-automation"]
+    }
     saved = False
     with sync_playwright() as p:
         try:
