@@ -47,7 +47,9 @@ app = FastAPI(title="VaiTestPipe API", version="0.2.0")
 app.add_middleware(GZipMiddleware, minimum_size=500)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    # allow_origins=settings.cors_origins,
+    allow_origins=["*"],  # Allows all origins (you can replace "*" with your frontend's actual URL later for security)
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["Content-Disposition"],
