@@ -621,13 +621,13 @@ MANUAL_LOGIN_TIMEOUT_S = 600
 
 
 def manual_login(login_url: str, stop: threading.Event) -> dict:
-    """Open a visible browser at `login_url` and let the user log in by hand (Google
-    OAuth, 2FA, captcha...). Ends when `stop` is set, all tabs are closed, or on timeout,
-    then saves the session once."""
+    """Open a browser..."""
     settings.auth_state_file.unlink(missing_ok=True)
-    # Without these flags Google's sign-in page refuses automated browsers.
+    
+    is_headless = getattr(settings, "headless", True)
+    
     launch = {
-        "headless": False, 
+        "headless": is_headless, 
         "args": [
             "--disable-blink-features=AutomationControlled",
             "--no-sandbox",
@@ -637,12 +637,13 @@ def manual_login(login_url: str, stop: threading.Event) -> dict:
         ],
         "ignore_default_args": ["--enable-automation"]
     }
+    
     saved = False
     with sync_playwright() as p:
         try:
-            browser = p.chromium.launch(channel="chrome", **launch)  # real Chrome, if installed
-        except PlaywrightError:
             browser = p.chromium.launch(**launch)
+        except PlaywrightError as e:
+            raise CrawlError(f"Could not launch browser for login: {e.message}")
         try:
             context = browser.new_context(no_viewport=True)
             page = context.new_page()
