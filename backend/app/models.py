@@ -40,18 +40,18 @@ ASSERTION_ACTIONS = {a for a in StepAction if a.value.startswith("expect_")}
 
 # Test categories the AI is asked to cover. Security & Scalability are first-class.
 TEST_TYPES = [
-    "Smoke",
-    "Functional",
-    "Usability",
-    "UI",
-    "Regression",
-    "Navigation",
-    "Performance",
-    "Form Validation",
-    "Accessibility",
+    # "Smoke",
+    # "Functional",
+    # "Usability",
+    # "UI",
+    # "Regression",
+    # "Navigation",
+    # "Performance",
+    # "Form Validation",
+    # "Accessibility",
     "Security",
-    "Scalability",
-    "Manual",
+    # "Scalability",
+    # "Manual",
 ]
 
 
