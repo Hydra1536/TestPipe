@@ -291,212 +291,45 @@ def _parse_steps(raw: Any) -> list[TestStep]:
 # """.strip()
 
 COVERAGE_GUIDANCE = """
-Act as a senior QA automation engineer and application security tester.
+Guiding principle: "Never trust user input." Be exhaustive and creative. Generate every
+distinct, meaningful test this page warrants — there is NO fixed limit, so favour breadth
+and edge cases.
 
-Analyze the provided webpage, available API calls, and observable application behaviour. Generate a broad collection of distinct, meaningful, deterministic, and non-destructive Playwright test cases.
+SECURITY (put the all effort here; these are defensive, non-destructive checks on a site
+you are authorised to test). Cover each item this page makes testable:
+  - Injection resilience: submit malformed / injection-style strings (SQL/NoSQL syntax,
+    HTML/script markup, template markers) into each input; assert the app treats them as
+    literal data — the raw text is escaped on screen (expect_not_text on any database or
+    parser error string), no script dialog fires (expect_no_dialog), and the page does not
+    break.
+  - Broken object-level authorisation / IDOR: for an api_calls endpoint that includes an
+    id, `request` a different or adjacent id (GET only) and expect_status 401/403/404, not 200.
+  - Broken authentication: `request` a protected api_calls endpoint with the Authorization
+    header omitted, and separately with a clearly invalid token; expect_status 401/403.
+  - Excessive data exposure: `request` a data endpoint and expect_not_text for fields that
+    should never reach the client (password, password_hash, secret, ssn, card number).
+  - Sensitive data in URL: after login/search/submit, expect_url_not for password, token,
+    email, session id.
+  - Security headers on the page response: expect_header for content-security-policy,
+    x-content-type-options=nosniff, x-frame-options or a frame-ancestors CSP (clickjacking),
+    strict-transport-security; expect_header_absent for server and x-powered-by
+    (version disclosure).
+  - CORS policy: `request` an api_calls endpoint with a foreign Origin header and
+    expect the response NOT to reflect it as access-control-allow-origin (expect_header_absent
+    or expect_header not matching the foreign origin).
+  - Improper / shadow assets: `request` the well-known exposure paths and expect_status 404
+    (never 200): /.env, /.git/config, /swagger, /api-docs, /openapi.json, /actuator.
+  - Sensitive error messages / logs leakage: force a 404/400 and expect_not_text for stack
+    traces, framework names, file-system paths.
+  - Session handling: after logout, `request` a protected endpoint and expect_status 401/403
+    (improper session termination).
+  - Rate limiting / anti-automation: note in the description where brute-force protection
+    should exist; do NOT actually flood requests.
+  Do NOT perform destructive, brute-force or high-volume attacks, and use only GET/HEAD/
+  OPTIONS with `request`.
 
-Core principle: Never trust user input, IDs, headers, browser state, or client-side validation.
-Generate tests only when relevant to the actual page. Avoid duplicates, trivial variations, and unrelated generic tests. There is no fixed test count; maximize meaningful coverage.
-
-Every test MUST be implementable using Playwright.
-
-Allowed:
-- Browser interactions, locators, navigation and assertions.
-- Playwright API requests using request.
-- Browser cookies, local/session storage and URL inspection.
-- Network interception and response inspection.
-- Console errors, page errors and JavaScript dialog monitoring.
-- Safe file upload/download tests.
-- Browser context isolation and viewport testing.
-Security API probes MUST use only GET, HEAD, or OPTIONS. Never use state-changing API requests for security probing.
-
-Safe UI tests may use disposable fixtures and reversible test data.
-
-Never:
-- Perform destructive actions, real payments, account deletion or real message delivery.
-- Flood endpoints or perform brute-force/high-volume attacks.
-- Access databases, servers, Docker, SSH, cloud consoles or CI/CD systems.
-- Claim to verify infrastructure controls that are not observable through Playwright.
-- Invent API endpoints, roles, credentials, or expected behaviour.
-Mock external dependencies and use controlled test data where necessary.
-Every test case MUST begin with exactly one ownership prefix:
-- Dev: <test case>
-- Devops: <test case>
-- Shared: <test case>
-Choose the team primarily responsible for fixing the failure.
-
-Dev: Application code, frontend/backend logic, authentication, authorization, input validation, APIs, database interactions, business rules, file handling, JWT and application-level security.
-
-Devops: Server, deployment, reverse proxy, TLS infrastructure, firewall, exposed files, container/runtime configuration and infrastructure-level security.
-
-Shared: Controls requiring application and infrastructure coordination, including CORS, security headers, rate limiting, SSRF, session cookies, encryption in transit, logging/monitoring and dependency security.
-
-Examples:
-- Dev: Prevent users from accessing another user's private project by changing its ID.
-- Devops: Verify that HTTP requests redirect to HTTPS.
-- Shared: Verify that an untrusted origin cannot access credentialed API responses.
-Do not assign multiple ownership prefixes to one test.
-Generate all applicable tests from the following categories.
-- Unauthenticated access to protected pages and APIs.
-- Protected API requests without Authorization and with invalid tokens (expect 401/403).
-- Expired or malformed token handling, where safely testable.
-- RBAC and role-restricted UI/API access.
-- BOLA/IDOR: attempt GET access to another known or adjacent test resource ID; expect 401/403/404, not unauthorized 200.
-- Resource ownership and permission enforcement.
-- Direct navigation to restricted pages.
-- Session expiration and logout invalidation.
-- Protected API access after logout (expect 401/403).
-- Session isolation between browser contexts.
-- Authentication state after refresh.
-- User enumeration through login, registration and recovery responses.
-- Session cookie attributes: HttpOnly, Secure, SameSite.
-- JWT signature, algorithm, issuer, audience and expiration validation, only where externally testable.
-- Sensitive operations requiring re-authentication, if supported.
-- Stale permissions and authorization state after role changes.
-Test every applicable user-controlled input, including search, filters, comments, forms, URL fields and profile fields.
-
-Use relevant safe payloads:
-- SQL/NoSQL injection syntax.
-- HTML and script markup.
-- Event-handler attributes and JavaScript URL schemes.
-- Template markers ({{...}}, ${...}, <%=...%>).
-- Unicode, bidirectional text and special characters.
-- Null bytes, newline and carriage-return characters.
-- Very long strings, whitespace and unexpected data types.
-Assert:
-- Input is treated as literal data where appropriate.
-- Rendered content is safely escaped or sanitized.
-- No script executes or dialog appears (expect_no_dialog).
-- No database/parser/framework error appears (expect_not_text).
-- The page does not crash or become unusable.
-Also test:
-- Mass assignment and modification of protected fields.
-- Manipulation of hidden/disabled controls.
-- Client-side validation bypass.
-- Prototype-pollution-style keys where relevant.
-- Second-order injection when stored test content is rendered elsewhere.
-- ReDoS-related input handling through safe, bounded test values.
-Do not blindly inject every payload into every field. Match payloads to the input's purpose.
-- API responses must not expose passwords, password hashes, secrets, private keys, SSNs or payment-card data.
-- Sensitive information must not appear unnecessarily in rendered content.
-- Passwords and OTPs should be masked appropriately.
-- After login/search/submission, check URLs for passwords, tokens, email addresses and session identifiers (expect_url_not).
-- Check local/session storage for unnecessarily exposed credentials or tokens.
-- Verify sensitive values are cleared or hidden when appropriate.
-- Check that browser-visible errors and console messages do not expose secrets.
-- Verify that shared links do not contain authentication/session information.
-Do not flag authorized information merely because its field name sounds sensitive.
-Inspect observable HTTP responses for:
-- Content-Security-Policy.
-- X-Content-Type-Options: nosniff.
-- Clickjacking protection through X-Frame-Options or CSP frame-ancestors.
-- Strict-Transport-Security.
-- HTTPS enforcement and HTTP redirection.
-- Referrer-Policy and Permissions-Policy.
-- Secure cookie configuration.
-- Unnecessary Server and X-Powered-By disclosure.
-Check applicable exposure paths using GET/HEAD:
-/.env, /.git/config, /swagger, /api-docs, /openapi.json, /actuator.
-
-Expect appropriate 403/404 responses for restricted or nonexistent resources. Never accept exposed secrets. Do not assume legitimate public documentation is a vulnerability.
-Use safe GET/OPTIONS requests with a controlled foreign origin such as https://untrusted.example.
-
-Verify:
-- Untrusted origins are not reflected in Access-Control-Allow-Origin.
-- Credentialed requests are not allowed from untrusted origins.
-- Wildcard origins are not combined with credentials.
-- Allowed methods and headers are appropriately restricted.
-Trigger safe 400/404 responses using invalid routes or malformed GET parameters.
-
-Verify responses do not expose:
-- Stack traces or filesystem paths.
-- Database/SQL errors.
-- Framework names or internal configuration.
-- Secret values or internal service addresses.
-- Production debug pages.
-Check visible UI and accessible response bodies.
-Identify sensitive endpoints such as login, registration, password reset, OTP and search.
-
-Test only safe, low-volume behaviour:
-- Graceful handling of 429 responses.
-- Retry-After handling.
-- Clear user-facing rate-limit feedback.
-- Duplicate-click protection.
-- Existing test-fixture rate-limit behaviour, if available.
-Mention where brute-force protection, progressive delays, lockouts and anti-automation should exist. Never flood endpoints or perform actual brute-force attempts.
-Where applicable, test:
-- Unauthorized business actions.
-- Protected status/role/ownership changes.
-- Workflow transition restrictions.
-- Duplicate submissions and repeated clicks.
-- Idempotency behaviour where observable.
-- Stale data and conflicting browser interactions.
-- Race-condition symptoms using controlled, low-volume interactions.
-- Client-side state manipulation.
-- Confirmation requirements for destructive actions.
-- Scoped permissions and resource access.
-Never perform irreversible actions. Use mocked APIs or disposable fixtures.
-If supported, test:
-- Invalid extensions and MIME types.
-- Mismatched file signatures.
-- Empty and oversized files.
-- Long, Unicode and path-traversal-style filenames.
-- Unauthorized file previews/downloads.
-- Ownership enforcement.
-- Safe content rendering.
-- Upload errors, progress and cancellation.
-- Correct download filename and content type.
-Use harmless fixtures only. Never upload malware or executable payloads.
-If the page accepts URLs or external resources, test:
-- Invalid URL formats and unsupported schemes.
-- JavaScript URL schemes.
-- Unexpected ports and encoding.
-- Safe rejection of localhost/private-network destinations where observable.
-- Safe handling of external links and redirects.
-- noopener noreferrer for new-tab links.
-Do not access real internal services or cloud metadata endpoints. Use mocks and safe validation checks.
-- DOM-based XSS through search, filters, URL parameters and rendered data.
-- Stored/second-order XSS in previously saved test content.
-- Safe clipboard handling.
-- No unintended navigation through untrusted links.
-- No sensitive information in browser console errors.
-- Browser back/forward navigation after logout must not expose protected content.
-- Newline/control-character input must not break visible content.
-Do not claim to verify server-side audit completeness, log rotation, centralized logging or log integrity through browser tests.
-Every test must include:
-1. Ownership prefix and descriptive title.
-2. Priority: Critical / High / Medium / Low.
-3. Preconditions and test data.
-4. Steps.
-5. Expected result.
-6. Playwright feasibility.
-Example:
-
-Dev: Prevent unauthorized access to another user's project
-- Priority: Critical
-- Preconditions: Two disposable users and two known test projects.
-- Steps:
-  1. Authenticate as User A.
-  2. Open User B's project URL.
-  3. Attempt a safe GET request using User A's session.
-- Expected: Access is denied with the appropriate 401/403/404 response; private data is not exposed.
-- Playwright: Browser navigation + APIRequestContext.
-Use expect_status, expect_header, expect_header_absent, expect_not_text, expect_no_dialog and expect_url_not as descriptive assertion concepts where applicable. Implement them using actual Playwright assertions or project-provided helpers; do not assume these are built-in Playwright methods.
-Coverage Summary
-- Total test cases.
-- Dev / Devops / Shared counts.
-- Critical / High / Medium / Low counts.
-Playwright Limitations
-List only relevant controls that cannot genuinely be verified through this page. Examples include database permissions, encryption at rest, internal firewall rules, Docker hardening, CI/CD artifact signing, infrastructure IAM, centralized log retention and runtime monitoring.
-
-Missing Information
-Identify unavailable routes, roles, fixtures or API details. Never invent them.
-
-Highest-Risk Areas
-List the most important security boundaries requiring additional verification.
-Be exhaustive but relevant. Maximize distinct security and usability coverage. Do not repeat tests, invent endpoints, or test unsupported features.
-
-A frontend restriction is not proof of backend security. An observable HTTP response is not proof of internal infrastructure security. If Playwright cannot genuinely verify a control, omit its test and mention the limitation instead.
+Every test must be deterministic and non-destructive (never submit real payments, delete
+data, or send real messages). Skip exact duplicates and trivial variations.
 """.strip()
 
 
