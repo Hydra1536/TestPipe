@@ -223,20 +223,80 @@ def _parse_steps(raw: Any) -> list[TestStep]:
     return steps
 
 
+# COVERAGE_GUIDANCE = """
+# Guiding principle: "Never trust user input." Be exhaustive and creative. Generate every
+# distinct, meaningful test this page warrants — there is NO fixed limit, so favour breadth
+# and edge cases. Order the output by value: SECURITY and USABILITY first and in the
+# greatest number, then correctness/robustness, and only a few low-value UI-styling tests.
+
+# ALWAYS include at least one test of EACH of these types for the page (in addition to the
+# security/usability focus below):
+#   - Smoke: the page loads and a key heading/element is present.
+#   - UI (UI / Visual): important visible elements render and are labelled (keep these few).
+#   - Regression: a core end-to-end interaction on this page still works (a known-good flow).
+#   - Navigation: each nav control / link leads to the right place.
+#   - Performance: after reload, a key element becomes visible (page renders without hanging).
+#   - Accessibility: inputs have labels/aria and interactive elements are reachable.
+
+# SECURITY (put the most effort here; these are defensive, non-destructive checks on a site
+# you are authorised to test). Cover each item this page makes testable:
+#   - Injection resilience: submit malformed / injection-style strings (SQL/NoSQL syntax,
+#     HTML/script markup, template markers) into each input; assert the app treats them as
+#     literal data — the raw text is escaped on screen (expect_not_text on any database or
+#     parser error string), no script dialog fires (expect_no_dialog), and the page does not
+#     break.
+#   - Broken object-level authorisation / IDOR: for an api_calls endpoint that includes an
+#     id, `request` a different or adjacent id (GET only) and expect_status 401/403/404, not 200.
+#   - Broken authentication: `request` a protected api_calls endpoint with the Authorization
+#     header omitted, and separately with a clearly invalid token; expect_status 401/403.
+#   - Excessive data exposure: `request` a data endpoint and expect_not_text for fields that
+#     should never reach the client (password, password_hash, secret, ssn, card number).
+#   - Sensitive data in URL: after login/search/submit, expect_url_not for password, token,
+#     email, session id.
+#   - Security headers on the page response: expect_header for content-security-policy,
+#     x-content-type-options=nosniff, x-frame-options or a frame-ancestors CSP (clickjacking),
+#     strict-transport-security; expect_header_absent for server and x-powered-by
+#     (version disclosure).
+#   - CORS policy: `request` an api_calls endpoint with a foreign Origin header and
+#     expect the response NOT to reflect it as access-control-allow-origin (expect_header_absent
+#     or expect_header not matching the foreign origin).
+#   - Improper / shadow assets: `request` the well-known exposure paths and expect_status 404
+#     (never 200): /.env, /.git/config, /swagger, /api-docs, /openapi.json, /actuator.
+#   - Sensitive error messages / logs leakage: force a 404/400 and expect_not_text for stack
+#     traces, framework names, file-system paths.
+#   - Session handling: after logout, `request` a protected endpoint and expect_status 401/403
+#     (improper session termination).
+#   - Rate limiting / anti-automation: note in the description where brute-force protection
+#     should exist; do NOT actually flood requests.
+#   Do NOT perform destructive, brute-force or high-volume attacks, and use only GET/HEAD/
+#   OPTIONS with `request`.
+
+# USABILITY (second priority): clear labels and placeholders; helpful, specific validation
+# messages on bad input; required fields flagged; primary action reachable and obvious;
+# keyboard/Enter submits a form; error and empty states are understandable; back/reload keep
+# the user where they expect.
+
+# ACCESSIBILITY: inputs have labels/aria; interactive elements are reachable and named.
+
+# CORRECTNESS / NAVIGATION / FORMS: smoke (page + key heading load), each internal link/button
+# leads somewhere sensible, form validation for required/invalid/boundary values.
+
+# SCALABILITY / ROBUSTNESS: very long input is accepted or gracefully rejected; lists/tables
+# paginate or lazy-load; the page still works after a reload.
+
+# UI styling/layout tests: keep these FEW — only genuinely important visible elements.
+
+# Every test must be deterministic and non-destructive (never submit real payments, delete
+# data, or send real messages). Skip exact duplicates and trivial variations.
+# """.strip()
+
 COVERAGE_GUIDANCE = """
 Guiding principle: "Never trust user input." Be exhaustive and creative. Generate every
 distinct, meaningful test this page warrants — there is NO fixed limit, so favour breadth
 and edge cases. Order the output by value: SECURITY and USABILITY first and in the
 greatest number, then correctness/robustness, and only a few low-value UI-styling tests.
 
-ALWAYS include at least one test of EACH of these types for the page (in addition to the
-security/usability focus below):
-  - Smoke: the page loads and a key heading/element is present.
-  - UI (UI / Visual): important visible elements render and are labelled (keep these few).
-  - Regression: a core end-to-end interaction on this page still works (a known-good flow).
-  - Navigation: each nav control / link leads to the right place.
-  - Performance: after reload, a key element becomes visible (page renders without hanging).
-  - Accessibility: inputs have labels/aria and interactive elements are reachable.
+ALWAYS include these types tests(avoid tests which are not necessary from the provided list) for the page :
 
 SECURITY (put the most effort here; these are defensive, non-destructive checks on a site
 you are authorised to test). Cover each item this page makes testable:
@@ -270,21 +330,6 @@ you are authorised to test). Cover each item this page makes testable:
     should exist; do NOT actually flood requests.
   Do NOT perform destructive, brute-force or high-volume attacks, and use only GET/HEAD/
   OPTIONS with `request`.
-
-USABILITY (second priority): clear labels and placeholders; helpful, specific validation
-messages on bad input; required fields flagged; primary action reachable and obvious;
-keyboard/Enter submits a form; error and empty states are understandable; back/reload keep
-the user where they expect.
-
-ACCESSIBILITY: inputs have labels/aria; interactive elements are reachable and named.
-
-CORRECTNESS / NAVIGATION / FORMS: smoke (page + key heading load), each internal link/button
-leads somewhere sensible, form validation for required/invalid/boundary values.
-
-SCALABILITY / ROBUSTNESS: very long input is accepted or gracefully rejected; lists/tables
-paginate or lazy-load; the page still works after a reload.
-
-UI styling/layout tests: keep these FEW — only genuinely important visible elements.
 
 Every test must be deterministic and non-destructive (never submit real payments, delete
 data, or send real messages). Skip exact duplicates and trivial variations.
